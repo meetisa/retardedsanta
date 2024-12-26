@@ -4,7 +4,7 @@ export default class Bot {
 
 		this.API_KEY = API_KEY;
 		this.url = `https://api.telegram.org/bot${API_KEY}/`;
-		this.chatId = request.message.chat.id
+		this.chatId = request.message.chat.id;
 		this.request = request;
 
 		this.input = String(request.message.text);
@@ -12,6 +12,15 @@ export default class Bot {
 		let parsed = this.input.trim().split(/\s+/);
 		this.command = parsed[0];
 		this.args = parsed.slice(1);
+	}
+
+	createPerson(isAdmin) {
+		return {
+			username: this.request.message.chat.username,
+			first_name: this.request.message.chat.first_name,
+			last_name: this.request.message.chat.last_name,
+			admin: isAdmin
+		};
 	}
 
 	/** *
