@@ -74,7 +74,7 @@ export const commands = {
 	},
 
 	"/delete": {
-		"description": "/delete [nome] - elimina per sempre il gruppo (bisogna essere admin)",
+		"description": "/delete [nome] - elimina per sempre il gruppo (bisogna essere admin + sapere la password)",
 		"onlydevs": false,
 		"exec": async (env, bot) => {
 			let data = await getData(env);
@@ -93,6 +93,42 @@ export const commands = {
 			await bot.sendMessage("sei sicuro di voler eliminare il gruppo?");
 			await bot.sendMessage("per sicurezza, dimmi la password del gruppo e poi lo distruggo");
 			return ["delgrp", grpName];
+		}
+	},
+
+	"/setadmin": {
+		"description": "/setadmin [username] [gruppo] - per rendere un partecipante del gruppo un admin (bisogna essere admin)",
+		"onlydevs": false,
+		"exec": async (env, bot) => {
+			let data = await getData(env);
+			let newadmin = bot.args[0];
+			let grpName = bot.args[1];
+
+			if(!data.groups.hasOwnProperty(grpName)) {
+				await bot.sendMessage("gruppo inesistente");
+				return;
+			}
+
+			let grp = data.groups[grpName].people;
+
+			if(grp[bot.chatId].admin == "false") {
+				await bot.sendMessage("solo gli admin possono rendere altri admin, sorry");
+				return;
+			}
+
+			if(!Object.values(grp).map(p => p.username).includes(newadmin)) {
+				await bot.sendMessage(`${newadmin} non fa parte del gruppo ${grpName}, idiota`);
+				return;
+			}
+
+
+			Object.keys(grp).forEach(id => {
+				if(grp[id].username == newadmin)
+					data.groups[grpName].people[id].admin = "true";
+			});
+
+			await env.DATA.put(env.FILENAME, JSON.stringify(data));
+			await bot.sendMessage("fatto");
 		}
 	},
 
