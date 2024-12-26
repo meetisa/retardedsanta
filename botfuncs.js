@@ -1,11 +1,11 @@
 export default class Bot {
 	constructor(API_KEY, request) {
-		this.filename = "data.json";
-
 		this.API_KEY = API_KEY;
-		this.url = `https://api.telegram.org/bot${API_KEY}/`;
-		this.chatId = request.message.chat.id;
 		this.request = request;
+
+		this.url = `https://api.telegram.org/bot${API_KEY}/`;
+
+		this.chatId = request.message.chat.id;
 
 		this.input = String(request.message.text);
 
