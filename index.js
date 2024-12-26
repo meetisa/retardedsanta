@@ -32,6 +32,12 @@ export default {
 	},
 
 	async commandManagement(env, bot) {
+		if(!commands.hasOwnProperty(bot.command)) {
+			await bot.sendMessage("Comando non esistente");
+			await bot.sendMessage(await env.MODBEST.bestemmiaRandom());
+			return;
+		}
+
 		if(commands[bot.command].onlydevs && bot.chatId != DEV_CHAT_ID) {
 			await bot.sendMessage("azione riservata agli sviluppatori, sorry");
 			return;

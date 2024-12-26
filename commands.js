@@ -1,4 +1,5 @@
 export const commands = {
+	/* comandi riservati agli sviluppatori */
 	"/printdata": {
 		"description": "",
 		"onlydevs": true,
@@ -25,6 +26,10 @@ export const commands = {
 		}
 	},
 
+	/* ---------------------------------- */
+
+
+	/* comandi per tutti gli utenti */
 
 	"/start": {
 		"description": "/start - mi presento",
@@ -47,13 +52,47 @@ export const commands = {
 		"description": "/newgroup [nome] - crea un nuovo gruppo con cui scambiare i regali",
 		"onlydevs": false,
 		"exec": async (env, bot) => {
-			if(bot.args[0] == undefined || bot.args[0] == '')
+			let newname = bot.args[0];
+
+			//controllo che il nome sia valido
+			if(newname == undefined || newname == '') {
 				await bot.sendMessage("devi mettere il nome del gruppo dopo il comando, merda");
-			else {
-				await bot.sendMessage(`nuovo gruppo aggiunto: ${bot.args[0]}`);
-				await bot.sendMessage(`scegli una password per il gruppo`);
+				return;
 			}
-			return ["setpw", bot.args[0]];
+
+			//controllo che il gruppo non esista già
+			let data = await getData(env);
+			if(data.groups.hasOwnProperty(newname)) {
+				await bot.sendMessage("un gruppo con questo nome esiste già, scegline un altro per dio");
+				return;
+			}
+
+			await bot.sendMessage(`nuovo gruppo aggiunto: ${newname}`);
+			await bot.sendMessage(`scegli una password per il gruppo`);
+			return ["setpw", newname];
+		}
+	},
+
+	"/delete": {
+		"description": "/delete [nome] - elimina per sempre il gruppo (bisogna essere admin)",
+		"onlydevs": false,
+		"exec": async (env, bot) => {
+			let data = await getData(env);
+			let grpName = bot.args[0];
+
+			if(!data.groups.hasOwnProperty(grpName)) {
+				await bot.sendMessage("gruppo inesistente");
+				return;
+			}
+
+			if(data.groups[grpName].people[bot.chatId].admin == "false") {
+				await bot.sendMessage("solo l'admin può eliminare il gruppo, sorry");
+				return;
+			}
+
+			await bot.sendMessage("sei sicuro di voler eliminare il gruppo?");
+			await bot.sendMessage("per sicurezza, dimmi la password del gruppo e poi lo distruggo");
+			return ["delgrp", grpName];
 		}
 	},
 
@@ -61,8 +100,21 @@ export const commands = {
 		"description": "/join [nome] - per aggiungersi a un gruppo già esistene (bisogna sapere la password)",
 		"onlydevs": false,
 		"exec": async (env, bot) => {
-			await bot.sendMessage(`Qual è la password del gruppo ${bot.args[0]}?`);
-			return ['join', bot.args[0]];
+			let data = await getData(env);
+			let grpName = bot.args[0];
+
+			if(!data.groups.hasOwnProperty(grpName)) {
+				await bot.sendMessage("gruppo inesistente");
+				return;
+			}
+
+			if(data.groups[grpName].people.hasOwnProperty(bot.chatId)) {
+				await bot.sendMessage("fai già parte del gruppo, idiota");
+				return;
+			}
+
+			await bot.sendMessage(`Qual è la password del gruppo ${grpName}?`);
+			return ['join', grpName];
 		}
 	},
 
@@ -70,31 +122,41 @@ export const commands = {
 		"description": "/extract [nome] - estrae dal gruppo i nomi casuali, e manda un messaggio a tutti i partecipanti (bisgna essere il creatore del gruppo)",
 		"onlydevs": false,
 		"exec": async (env, bot) => {
+			let a, alice, b, bob;
+
 			let data = await getData(env);
 
-			let grp = data.groups[bot.args[0]].people;
-			let people = Object.key(grp).map(id => [id, grp[id]]);
-			var i, j;
-			var alice, bob;
-
-			if(data.groups.hasOwnProperty(bot.args[0])) {
-				people.sort((a,b) => 0.5 - Math.random());
-				for(i=0; i<people.length; i++) {
-					if(i == people.length-1)
-						j = 0;
-					else
-						j = i+1;
-
-					alice = people[i][0];
-					bob = people[j][1].first_name;
-					if(people[j][1].hasOwnProperty("last_name"))
-						bob += " " + people[j][1].last_name;
-
-					await bot.sendToAnyMessage(alice, `Dovrai fare il regalo a <span class="tg-spoiler">${bob}</span>`);
-				}
-			}
-			else
+			//controllo esistenza gruppo
+			if(!data.groups.hasOwnProperty(bot.args[0])) {
 				await bot.sendMessage("gruppo inesistente");
+				return;
+			}
+
+			let grp = data.groups[bot.args[0]].people;
+
+			//controllo che la richiesta sia dell'admin del gruppo
+			if(grp[String(bot.chatId)].admin == "false") {
+				await bot.sendMessage("Solo l'admin del gruppo può estrarre i nomi, sorry");
+				return;
+			}
+
+			let people = Object.keys(grp).map(id => [id, grp[id]]);
+
+			people.sort((x, y) => 0.5 - Math.random());
+
+			for(a=0; a<people.length; a++) {
+				if(a == people.length-1)
+					b = 0;
+				else
+					b = a+1;
+
+				alice = people[a][0];
+				bob = people[b][1].first_name;
+				if(people[b][1].hasOwnProperty("last_name"))
+					bob += " " + people[b][1].last_name;
+
+				await bot.sendToAnyMessage(alice, `Dovrai fare il regalo a <span class="tg-spoiler">${bob}</span>`);
+			}
 		}
 	},
 
@@ -113,17 +175,24 @@ export const commands = {
 		"exec": async (env, bot) => {
 			let data = await getData(env);
 
-			if(data.groups.hasOwnProperty(bot.args[0])) {
-				let people = data.groups[bot.args[0]].people;
-				if(Object.keys(people).includes(String(bot.chatId)))
-					await bot.sendMessage(Object.values(people).map(x => x.username).join("%0A"));
-				else
-					await bot.sendMessage("non fai parte del gruppo, idiota");
-			}
-			else
+			//controllo esistenza gruppo
+			if(!data.groups.hasOwnProperty(bot.args[0])) {
 				await bot.sendMessage("gruppo inesistente");
+				return;
+			}
+
+			//controllo che l'utente faccia parte del gruppo
+			let people = data.groups[bot.args[0]].people;
+			if(!Object.keys(people).includes(String(bot.chatId))) {
+				await bot.sendMessage("non fai parte del gruppo, idiota");
+				return;
+			}
+
+			await bot.sendMessage(Object.values(people).map(x => x.username).join("%0A"));
 		}
 	}
+
+	/* ---------------------------------- */
 };
 
 export const states = {
@@ -148,6 +217,17 @@ export const states = {
 		if(await checkpw(env, bot, stateData, bot.input)) {
 			let data = await getData(env);
 			data.groups[stateData].people[String(bot.chatId)] = bot.createPerson("false");
+			await env.DATA.put(env.FILENAME, JSON.stringify(data));
+			await bot.sendMessage("fatto");
+		}
+
+		return '';
+	},
+
+	"delgrp": async (env, bot, stateData) => {
+		if(await checkpw(env, bot, stateData, bot.input)) {
+			let data = await getData(env);
+			delete data.groups[stateData];
 			await env.DATA.put(env.FILENAME, JSON.stringify(data));
 			await bot.sendMessage("fatto");
 		}
