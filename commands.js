@@ -76,6 +76,7 @@ export const commands = {
 	"/delete": {
 		"description": "/delete [nome] - elimina per sempre il gruppo (bisogna essere admin + sapere la password)",
 		"onlydevs": false,
+		"checks": ["grpExist", "userInGrp", "onlyAdmin"],
 		"exec": async (env, bot) => {
 			let data = await getData(env);
 			let grpName = bot.args[0];
@@ -132,6 +133,14 @@ export const commands = {
 		}
 	},
 
+	"/unsetadmin": {
+		"description": "",
+		"onlydev": false,
+		"exec": async (env, bot) => {
+
+		}
+	},
+
 	"/join": {
 		"description": "/join [nome] - per aggiungersi a un gruppo già esistene (bisogna sapere la password)",
 		"onlydevs": false,
@@ -157,10 +166,15 @@ export const commands = {
 	"/extract": {
 		"description": "/extract [nome] - estrae dal gruppo i nomi casuali, e manda un messaggio a tutti i partecipanti (bisgna essere il creatore del gruppo)",
 		"onlydevs": false,
+		"checks": ["grpExist", "userInGrp", "onlyAdmin"],
 		"exec": async (env, bot) => {
+
+
 			let a, alice, b, bob;
 
 			let data = await getData(env);
+
+			await onlyAdmin(bot, data, bot.args[0], true);/*
 
 			//controllo esistenza gruppo
 			if(!data.groups.hasOwnProperty(bot.args[0])) {
@@ -192,7 +206,7 @@ export const commands = {
 					bob += " " + people[b][1].last_name;
 
 				await bot.sendToAnyMessage(alice, `Dovrai fare il regalo a <span class="tg-spoiler">${bob}</span>`);
-			}
+			}*/
 		}
 	},
 
@@ -283,6 +297,64 @@ async function getData(env) {
 		).text()
 	);
 }
+
+/* funzioni di controllo */
+async function grpExist(bot, data, grpName) {
+	let check = data.groups.hasOwnProperty(grpName);
+	if(!check)
+		await bot.sendMessage("gruppo inesistente");
+	return check;
+}
+
+async function userInGrp(bot, data, grpName) {
+	if(!( await grpExist(bot, data, grpName) ))
+		return false;
+
+	let check = Object.keys(data.groups[grpName].people)
+		.includes(String(bot.chatId));
+	if(!check)
+		await bot.sendMessage("azione riservata ai membri del gruppo, sorry");
+	return check;
+}
+
+async function onlyAdmin(bot, data, grpName) {
+	if(!( await userInGrp(bot, data, grpName) ))
+		return false;
+
+	let check = data.groups[grpName].people[String(bot.chatId)].admin == "true";
+	if(!check)
+		await bot.sendMessage("azione riservata agli admin del gruppo, sorry");
+	return check;
+}
+
+export const checks = {
+	"grpExist": async (bot, data, grpName) => {
+		let check = data.groups.hasOwnProperty(grpName);
+		if(!check)
+			await bot.sendMessage("gruppo inesistente");
+		return check;
+	},
+
+	"userInGrp": async (bot, data, grpName) => {
+		if(!data.groups.hasOwnProperty(grpName))
+			return false;
+
+		let check = Object.keys(data.groups[grpName].people).includes(String(bot.chatId));
+		if(!check)
+			await bot.sendMessage("azione riservata ai membri del gruppo, sorry");
+		return check;
+	},
+
+	"onlyAdmin": async (bot, data, grpName) => {
+		if(!data.groups.hasOwnProperty(grpName))
+			return false;
+
+		let check = data.groups[grpName].people[String(bot.chatId)].admin == "true";
+		if(!check)
+			await bot.sendMessage("azione riservata agli admin del gruppo, sorry")
+		return check;
+	}
+};
 
 async function checkpw(env, bot, name, pw) {
 	let data = await getData(env);

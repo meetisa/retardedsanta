@@ -1,5 +1,5 @@
 import Bot from './botfuncs.js';
-import { commands, states } from './commands.js';
+import { commands, states, checks } from './commands.js';
 
 const DEV_CHAT_ID = 512131924;
 const DEV_MODE = false;
@@ -43,6 +43,16 @@ export default {
 			return;
 		}
 
+		// let data = await this.getData(env);
+  //
+		// let check = await commands[bot.command].checks
+		// 	.map(ch => checks[ch](bot, data, ...bot.args))
+		// 	.reduce(
+		// 		(acc, curr) => acc && curr, true
+		// 	);
+
+		// await bot.sendMessage(String(check));
+
 		let resp = await commands[bot.command].exec(env, bot);
 		if(resp != undefined)
 			[state, stateData] = resp;
@@ -53,5 +63,13 @@ export default {
 			state = await states[state](env, bot, stateData);
 		else
 			await bot.sendMessage(await env.MODBEST.bestemmiaRandom());
+	},
+
+	async getData(env) {
+		return JSON.parse(
+			await (
+				await env.DATA.get(env.FILENAME)
+			).text()
+		);
 	}
 };
